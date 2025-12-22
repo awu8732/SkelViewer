@@ -1,8 +1,8 @@
-#include "DataLoaderBinary.h"
+#include "MotionData.h"
 #include <QDebug>
 #include <set>
 
-DataLoaderBinary::DataLoaderBinary(const std::string& meta_path,
+MotionData::MotionData(const std::string& meta_path,
                                    const std::string& bin_path,
                                    const SingleViewerConfiguration& cfg)
     : cfg_(cfg)
@@ -68,15 +68,15 @@ DataLoaderBinary::DataLoaderBinary(const std::string& meta_path,
 
 /* ------------ PUBLIC ------------ */
 
-int DataLoaderBinary::get_frame_count () const {
+int MotionData::get_frame_count () const {
     return num_frames_;
 }
 
-int DataLoaderBinary::get_fps () const {
+int MotionData::get_fps () const {
     return cfg_.FPS;
 }
 
-MatrixXf DataLoaderBinary::get_joints(int frame_idx) const {
+MatrixXf MotionData::get_joints(int frame_idx) const {
     return aligned_joints_.at(frame_idx);
     // if (cfg_.STATIC_ALIGN) {
     //     return aligned_joints_.at(frame_idx);
@@ -86,25 +86,25 @@ MatrixXf DataLoaderBinary::get_joints(int frame_idx) const {
     // }
 }
 
-Vector3f DataLoaderBinary::get_root_velocity_sg(int frame_idx) const {
+Vector3f MotionData::get_root_velocity_sg(int frame_idx) const {
     if (frame_idx < 0 || frame_idx >= num_frames_)
         return Vector3f::Zero();
     return root_vel_[frame_idx];
 }
 
-Vector3f DataLoaderBinary::get_root_acceleration_sg(int frame_idx) const {
+Vector3f MotionData::get_root_acceleration_sg(int frame_idx) const {
     if (frame_idx < 0 || frame_idx >= num_frames_)
         return Vector3f::Zero();
     return root_acc_[frame_idx];
 }
 
-const std::vector<std::pair<int,int>>& DataLoaderBinary::get_SMPL_edges() const {
+const std::vector<std::pair<int,int>>& MotionData::get_SMPL_edges() const {
     return cfg_.SMPL_EDGES;
 }
 
 /* ------------ PRIVATE ------------ */
 
-void DataLoaderBinary::preprocess_joints() {
+void MotionData::preprocess_joints() {
     root_vel_.assign(num_frames_, Vector3f::Zero());
     root_acc_.assign(num_frames_, Vector3f::Zero());
 
@@ -133,7 +133,7 @@ QString eigenRowToQString(const Eigen::MatrixXf& m, int row)
 }
 
 
-void DataLoaderBinary::load_and_align_joints() {
+void MotionData::load_and_align_joints() {
     aligned_joints_.clear();
     aligned_joints_.resize(num_frames_);
 
@@ -186,13 +186,13 @@ void DataLoaderBinary::load_and_align_joints() {
     }
 }
 
-void DataLoaderBinary::extract_root_trajectory(std::vector<Vector3f>& roots) {
+void MotionData::extract_root_trajectory(std::vector<Vector3f>& roots) {
     for (int i = 0; i < num_frames_; i++) {
         roots[i] = aligned_joints_[i].row(0);  // root joint
     }
 }
 
-void DataLoaderBinary::smooth_root_trajectory(
+void MotionData::smooth_root_trajectory(
     const std::vector<Vector3f>& roots,
     std::vector<Vector3f>& smoothed)
 {
@@ -241,7 +241,7 @@ void DataLoaderBinary::smooth_root_trajectory(
     }
 }
 
-void DataLoaderBinary::compute_root_derivatives(
+void MotionData::compute_root_derivatives(
     const std::vector<Vector3f>& smoothed)
 {
     float dt = 1.0f / cfg_.FPS;
@@ -268,14 +268,14 @@ void DataLoaderBinary::compute_root_derivatives(
     }
 }
 
-MatrixXf DataLoaderBinary::swap_yz(const MatrixXf& joints) const {
+MatrixXf MotionData::swap_yz(const MatrixXf& joints) const {
     MatrixXf out = joints;
     out.col(1) = joints.col(2);
     out.col(2) = joints.col(1);
     return out;
 }
 
-MatrixXf DataLoaderBinary::read_array(const ArrayMeta& meta) const {
+MatrixXf MotionData::read_array(const ArrayMeta& meta) const {
     size_t n_elements = 1;
     for (auto s : meta.shape) n_elements *= s;
     assert(sizeof(float) * n_elements == meta.nbytes);

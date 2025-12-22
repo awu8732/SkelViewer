@@ -3,6 +3,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Controls.Imagine
 import QtQuick.Layouts
+import HMR_Trial_2.Playback
 
 Drawer {
     id: sideControlRoot
@@ -35,16 +36,12 @@ Drawer {
         anchors.margins: parent ? parent.width * 0.03 : 22
         spacing: 15
 
-        Rectangle {
+        // Header Section
+        SectionBox {
             Layout.fillWidth: true
-            height: 80
-            color: "transparent"
-            border.width: 1
-            border.color: "#444"
 
             ColumnLayout {
-                anchors.fill: parent
-                anchors.margins: 8
+                Layout.fillWidth: true
                 spacing: 4
 
                 Label {
@@ -56,9 +53,9 @@ Drawer {
                 }
 
                 Label {
-                    text: "Motion Analysis"
+                    text: "Kinematic Motion Analysis"
                     font.bold: true
-                    font.pixelSize: 15
+                    font.pixelSize: 14
                     color: "white"
                     Layout.alignment: Qt.AlignLeft | Qt.AlignVCenter
                 }
@@ -76,220 +73,246 @@ Drawer {
 
             ColumnLayout {
                 id: columnContent
-                width: parent.width
+                width: scrollArea.width
                 spacing: 15
 
-                /* SECTION: Root Imprint */
-                RowLayout {
-                    Layout.fillWidth: true
+                // SECTION: Root Imprint
+                SectionBox {
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 4
 
-                    Label {
-                        color: palette.highlight
-                        text: "Root Imprint"
-                        font.bold: true
-                        Layout.alignment: Qt.AlignVCenter
-                    }
+                        RowLayout {
+                            Layout.fillWidth: true
+                            Label {
+                                color: palette.highlight
+                                text: "Root Imprint"
+                                font.bold: true
+                                Layout.alignment: Qt.AlignVCenter
+                            }
+                            Item { Layout.fillWidth: true }
+                            Switch {
+                                id: switchRoot
+                                Layout.alignment: Qt.AlignRight
+                                checked: globalSV.showImprint
+                                onCheckedChanged: globalSV.showImprint = checked
+                            }
+                        }
 
-                    Item { Layout.fillWidth: true }
+                        RowLayout {
+                            Layout.fillWidth: true
+                            enabled: globalSV.showImprint
+                            spacing: 10
 
-                    Switch {
-                        id: switchRoot
-                        Layout.alignment: Qt.AlignRight
-                        checked: globalSV.showImprint
-                        onCheckedChanged: globalSV.showImprint = checked
-                    }
-                }
+                            Label {
+                                text: "Trail Length: " + globalSV.imprintTrailLength
+                                color: palette.highlight
+                                Layout.alignment: Qt.AlignVCenter
+                            }
 
-                RowLayout {
-                    Layout.fillWidth: true
-                    enabled: globalSV.showImprint
-                    spacing: 10
+                            Item { Layout.fillWidth: true }
 
-                    Label {
-                        text: "Trail Length: " + rootImprint1.trailLength
-                        color: palette.highlight
-                        Layout.alignment: Qt.AlignVCenter
-                    }
+                            Slider {
+                                id: trailLengthSlider
+                                from: 10
+                                to: 510
+                                stepSize: 20
+                                value: globalSV.imprintTrailLength
+                                Layout.preferredWidth: sideControlRoot.width * 0.50
+                                Layout.minimumWidth: Layout.preferredWidth
+                                Layout.maximumWidth: Layout.preferredWidth
 
-                    Item { Layout.fillWidth: true }
-
-                    Slider {
-                        id: trailLengthSlider
-                        from: 10
-                        to: 510
-                        stepSize: 20
-                        value: rootImprint1.trailLength
-                        Layout.preferredWidth: sideControlRoot.width * 0.50
-                        Layout.minimumWidth: Layout.preferredWidth
-                        Layout.maximumWidth: Layout.preferredWidth
-
-                        onValueChanged: rootImprint1.trailLength = Math.round(value)
-                    }
-                }
-
-                /* SECTION: Motion Scatter */
-                RowLayout {
-                    Layout.fillWidth: true
-
-                    Label {
-                        color: palette.highlight
-                        text: "Motion Scatter"
-                        font.bold: true
-                        Layout.alignment: Qt.AlignVCenter
-                    }
-
-                    Item { Layout.fillWidth: true }
-
-                    Switch {
-                        id: switchScatter
-                        Layout.alignment: Qt.AlignRight
-                        checked: globalSV.showScatter
-                        onCheckedChanged: globalSV.showScatter = checked
+                                onValueChanged: globalSV.imprintTrailLength = Math.round(value)
+                            }
+                        }
                     }
                 }
 
-                RowLayout {
-                    Layout.fillWidth: true
-                    enabled: globalSV.showScatter
-                    spacing: 10
+                // SECTION: Motion Scatter
+                SectionBox {
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 4
 
-                    Label {
-                        color: palette.highlight
-                        text: "Window: " + motionScatter.n
-                        Layout.alignment: Qt.AlignVCenter
-                    }
+                        RowLayout {
+                            Layout.fillWidth: true
+                            Label {
+                                color: palette.highlight
+                                text: "Motion Scatter"
+                                font.bold: true
+                                Layout.alignment: Qt.AlignVCenter
+                            }
+                            Item { Layout.fillWidth: true }
+                            Switch {
+                                id: switchScatter
+                                Layout.alignment: Qt.AlignRight
+                                checked: globalSV.showScatter
+                                onCheckedChanged: globalSV.showScatter = checked
+                            }
+                        }
 
-                    Item { Layout.fillWidth: true }
+                        RowLayout {
+                            Layout.fillWidth: true
+                            enabled: globalSV.showScatter
+                            spacing: 10
 
-                    Slider {
-                        id: windowLengthSlider
-                        from: 0
-                        to: 10
-                        stepSize: 1
-                        value: motionScatter.n
-                        Layout.preferredWidth: sideControlRoot.width * 0.50
-                        Layout.minimumWidth: Layout.preferredWidth
-                        Layout.maximumWidth: Layout.preferredWidth
+                            Label {
+                                color: palette.highlight
+                                text: "Window: " + globalSV.scatterCount
+                                Layout.alignment: Qt.AlignVCenter
+                            }
 
-                        onValueChanged: motionScatter.n = value
-                    }
-                }
+                            Item { Layout.fillWidth: true }
 
-                RowLayout {
-                    Layout.fillWidth: true
-                    enabled: globalSV.showScatter
-                    spacing: 10
+                            Slider {
+                                id: windowLengthSlider
+                                from: 0
+                                to: 10
+                                stepSize: 1
+                                value: globalSV.scatterCount
+                                Layout.preferredWidth: sideControlRoot.width * 0.50
+                                Layout.minimumWidth: Layout.preferredWidth
+                                Layout.maximumWidth: Layout.preferredWidth
 
-                    Label {
-                        color: palette.highlight
-                        text: "Step: " + motionScatter.stepCount
-                        Layout.alignment: Qt.AlignVCenter
-                    }
+                                onValueChanged: globalSV.scatterCount = value
+                            }
+                        }
 
-                    Item { Layout.fillWidth: true }
+                        RowLayout {
+                            Layout.fillWidth: true
+                            enabled: globalSV.showScatter
+                            spacing: 10
 
-                    Slider {
-                        id: stepCountSlider
-                        from: 1
-                        to: 10
-                        stepSize: 1
-                        value: motionScatter.stepCount
-                        Layout.preferredWidth: sideControlRoot.width * 0.50
-                        Layout.minimumWidth: Layout.preferredWidth
-                        Layout.maximumWidth: Layout.preferredWidth
-                        onValueChanged: motionScatter.stepCount = value
-                    }
-                }
+                            Label {
+                                color: palette.highlight
+                                text: "Step: " + globalSV.scatterStep
+                                Layout.alignment: Qt.AlignVCenter
+                            }
 
-                /* SECTION: Playback */
-                PlaybackHub {
-                    Layout.fillWidth: true
-                    //Layout.preferredHeight: implicitHeight
-                    //Layout.minimumHeight: implicitHeight
+                            Item { Layout.fillWidth: true }
 
-                    onFrameChanged: function(newFrame) {
-                        jointProvider3D.updateJoints(newFrame)
-                        mainWindow.imprintRoot.recordFrame()
-                        mainWindow.currentFrame = newFrame
-                    }
-                }
-
-                /* SECTION: Camera Follow */
-
-                RowLayout {
-                    Layout.fillWidth: true
-
-                    Label {
-                        color: palette.highlight
-                        text: "Camera Follow"
-                        font.bold: true
-                        Layout.alignment: Qt.AlignVCenter
-                    }
-
-                    Item { Layout.fillWidth: true }
-
-                    Switch {
-                        Layout.alignment: Qt.AlignRight
-                        checked: cameraControls.cameraFollowEnabled
-                        onCheckedChanged: cameraControls.cameraFollowEnabled = checked
+                            Slider {
+                                id: stepCountSlider
+                                from: 1
+                                to: 10
+                                stepSize: 1
+                                value: globalSV.scatterStep
+                                Layout.preferredWidth: sideControlRoot.width * 0.50
+                                Layout.minimumWidth: Layout.preferredWidth
+                                Layout.maximumWidth: Layout.preferredWidth
+                                onValueChanged: globalSV.scatterStep = value
+                            }
+                        }
                     }
                 }
 
-                /* SECTION: Camera Controls */
-                RowLayout {
-                    Layout.fillWidth: true
+                // SECTION: Playback
+                SectionBox {
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 4
 
-                    Label {
-                        text: "Camera Zoom"
-                        color: palette.highlight
-                        font.bold: true
-                        Layout.alignment: Qt.AlignVCenter
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 8
+                            Label {
+                                color: palette.highlight
+                                text: "Playback"
+                                font.bold: true
+                                Layout.alignment: Qt.AlignVCenter
+                            }
+                            Item { Layout.fillWidth: true }
+                            Button {
+                                id: playButton
+                                icon.name: PlaybackHub.playing ? "media-playback-pause" : "media-playback-start"
+                                text: PlaybackHub.playing ? " Pause" : " Play"
+                                Layout.alignment: Qt.AlignRight
+                                Layout.minimumWidth: 70
+                                padding: 8
+                                onClicked: PlaybackHub.playing = !PlaybackHub.playing
+                                background: Rectangle {
+                                    radius: 4
+                                    color: palette.highlight
+                                }
+                            }
+                        }
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 8
+                            Label {
+                                color: palette.highlight
+                                text: "Speedup: " + PlaybackHub.playbackRate + "x"
+                                Layout.alignment: Qt.AlignVCenter
+                            }
+                            Item { Layout.fillWidth: true }
+                            Slider {
+                                id: fpsSlider
+                                from: 0
+                                to: 4
+                                stepSize: 1
+                                value: 2
+                                Layout.preferredWidth: sideControlRoot.width * 0.50
+                                Layout.minimumWidth: Layout.preferredWidth
+                                Layout.maximumWidth: Layout.preferredWidth
+                                onValueChanged: {
+                                    const factors = [0.25, 0.5, 1.0, 2.0, 3.0]
+                                    PlaybackHub.playbackRate = factors[value]
+                                }
+                            }
+                        }
                     }
+                }
 
-                    Item { Layout.fillWidth: true }
+                // SECTION: Camera Follow
+                SectionBox {
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Label {
+                            color: palette.highlight
+                            text: "Camera Follow"
+                            font.bold: true
+                            Layout.alignment: Qt.AlignVCenter
+                        }
+                        Item { Layout.fillWidth: true }
+                        Switch {
+                            Layout.alignment: Qt.AlignRight
+                            checked: cameraControls.cameraFollowEnabled
+                            onCheckedChanged: cameraControls.cameraFollowEnabled = checked
+                        }
+                    }
+                }
 
-                    Slider {
-                        id: cameraZoomSlider
-                        from: -2
-                        to: 30
-                        stepSize: 0.1
-                        value: cameraControls ? cameraControls.cameraZ : 0
-                        Layout.preferredWidth: sideControlRoot.width * 0.50
-                        Layout.minimumWidth: Layout.preferredWidth
-                        Layout.maximumWidth: Layout.preferredWidth
-                        focusPolicy: Qt.NoFocus
-
-                        onValueChanged: {
-                            if (cameraControls) cameraControls.cameraZ = value
+                // SECTION: Camera Controls
+                SectionBox {
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Label {
+                            text: "Camera Zoom"
+                            color: palette.highlight
+                            font.bold: true
+                            Layout.alignment: Qt.AlignVCenter
+                        }
+                        Item { Layout.fillWidth: true }
+                        Slider {
+                            id: cameraZoomSlider
+                            from: -2
+                            to: 30
+                            stepSize: 0.1
+                            value: cameraControls ? cameraControls.cameraZ : 0
+                            Layout.preferredWidth: sideControlRoot.width * 0.50
+                            Layout.minimumWidth: Layout.preferredWidth
+                            Layout.maximumWidth: Layout.preferredWidth
+                            focusPolicy: Qt.NoFocus
+                            onValueChanged: {
+                                if (cameraControls) cameraControls.cameraZ = value
+                            }
                         }
                     }
                 }
 
                 Rectangle { height: 18; opacity: 0 }
             }
-
-            // WheelHandler {
-            //     target: scrollArea
-            //     onWheel: {
-            //         var delta = 0
-            //         if (wheel.angleDelta) delta = wheel.angleDelta.y
-            //         else if (wheel.pixelDelta) delta = wheel.pixelDelta.y
-
-            //         if ((scrollArea.contentY <= 0 && delta > 0) ||
-            //             (scrollArea.contentY >= scrollArea.contentHeight - scrollArea.height && delta < 0)) {
-            //             wheel.accepted = false
-            //         } else {
-            //             wheel.accepted = true
-            //         }
-            //     }
-            // }
-
-            // ScrollBar.vertical: ScrollBar {
-            //     policy: ScrollBar.AlwaysOn
-            //     anchors.right: parent.right
-            //     width: 6
-            //     contentItem: Rectangle { color: "#888"; radius: 4 }
-            // }
         }
     }
 }

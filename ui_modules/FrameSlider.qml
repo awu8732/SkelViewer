@@ -9,9 +9,7 @@ Item {
     width: parent.width
     height: column.implicitHeight
 
-    property int frame: 0
-    property int max_frame: 0
-    property var jointProvider
+    required property var playback   // SkeletonPlayback*
 
     Column {
         id: column
@@ -28,7 +26,7 @@ Item {
 
             Label {
                 id: labelFrame
-                text: "Frame " + mainWindow.currentFrame
+                text: "Frame " + playback.frame
                 font.pixelSize: 20
                 font.bold: true
                 anchors.centerIn: parent
@@ -42,24 +40,17 @@ Item {
             width: parent.width * 0.9
             anchors.horizontalCenter: parent.horizontalCenter
             from: 0
-            //to: mainWindow.maxFrame
+            to: Math.max(0, playback.maxFrames - 1)
             stepSize: 1
-            //value: mainWindow.currentFrame
+            value: playback.frame
             focusPolicy: Qt.NoFocus
-            onValueChanged: {
-                //mainWindow.currentFrame = value
-                jointProvider.updateJoints(value)
+
+            onMoved: playback.setFrame(Math.round(value))
+            onPressedChanged: {
+                if (pressed)
+                    playback.pause()
             }
         }
-    }
-    Component.onCompleted: {
-        if (jointProvider && typeof jointProvider.frameCount === "number") {
-                max_frame = jointProvider.frameCount - 1
-                slider.to = max_frame  // update the Slider range
-            } else {
-                max_frame = 0
-                slider.to = 0
-            }
     }
 }
 

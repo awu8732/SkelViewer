@@ -6,8 +6,10 @@
 #include <QDebug>
 #include <QString>
 
-#include "skel_lib/DataLoaderBinary.h"
-#include "skel_lib/JointProvider3D.h"
+#include "skel_lib/MotionData.h"
+#include "skel_lib/PlaybackHub.h"
+#include "skel_lib/SkeletonManager.h"
+#include "skel_lib/SkeletonViewModel.h"
 #include "skel_lib/SingleViewerConfiguration.h"
 #include "skel_lib/UtilityProvider.h"
 
@@ -20,29 +22,33 @@ int main(int argc, char *argv[])
     QQmlApplicationEngine engine;
     SingleViewerConfiguration cfg;
     setUIDefaults(app);
-    qmlRegisterType<JointProvider3D>("HMR_Trial_2", 1, 0, "JointProvider3D");
-    qmlRegisterSingletonInstance("Utils", 1, 0, "UtilityProvider",
-                                 new UtilityProvider());
 
+    // Register types for QML
+    qmlRegisterType<SkeletonViewModel>("HMR_Trial_2", 1, 0, "SkeletonViewModel");
+    qmlRegisterType<SkeletonManager>("HMR_Trial_2", 1, 0, "SkeletonManager");
+    qmlRegisterUncreatableType<SkeletonInstance>("HMR_Trial_2", 1, 0, "SkeletonInstance", "");
+    qmlRegisterUncreatableType<SkeletonPlayback>("HMR_Trial_2", 1, 0, "SkeletonPlayback", "");
+    qmlRegisterUncreatableType<SkeletonViewModel>("HMR_Trial_2", 1, 0, "SkeletonViewModel", "");
+    qmlRegisterSingletonInstance(
+        "Utils", 1, 0, "UtilityProvider", new UtilityProvider()
+    );
+    qmlRegisterSingletonInstance(
+        "HMR_Trial_2.Playback", 1, 0, "PlaybackHub", PlaybackHub::instance()
+    );
+
+    // Load binary / meta
     std::string bin_file = ":/qt/qml/HMR_Trial_2/tmp/oregon_test_1_ti0.bin";
     std::string meta_file = ":/qt/qml/HMR_Trial_2/tmp/oregon_test_1_ti0.meta.json";
 
-    // --- Optional: Check resources exist ---
     checkResourceExists(QString::fromStdString(bin_file));
     checkResourceExists(QString::fromStdString(meta_file));
 
-    // --- Initialize DataLoaderBinary using QRC paths ---
-    DataLoaderBinary* dlb = new DataLoaderBinary(
-        meta_file, bin_file, cfg
-    );
+    auto motion = std::make_shared<MotionData>(meta_file, bin_file, cfg);
 
-    // First skeleton
-    JointProvider3D jp(dlb);
-    engine.rootContext()->setContextProperty("jointProvider3D", &jp);
-
-    // Second skeleton
-    JointProvider3D jp2(dlb);
-    engine.rootContext()->setContextProperty("jointProvider3D_2", &jp2);
+    SkeletonManager* skeletonManager = new SkeletonManager(&engine);
+    skeletonManager->addSkeleton(motion);       // First skeleton
+    skeletonManager->duplicateSkeleton(0);      // Optional second skeleton
+    engine.rootContext()->setContextProperty("skeletonManager", skeletonManager);
 
     engine.load(QUrl(QStringLiteral("qrc:/qt/qml/HMR_Trial_2/Main.qml")));
     if (engine.rootObjects().isEmpty())
@@ -53,7 +59,7 @@ int main(int argc, char *argv[])
 void setUIDefaults(QGuiApplication &app){
     QFont defaultFont;
     //defaultFont.setBold(true);
-    defaultFont.setPixelSize(18);
+    defaultFont.setPixelSize(16);
     app.setFont(defaultFont);
 }
 

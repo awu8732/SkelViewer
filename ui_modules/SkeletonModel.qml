@@ -4,7 +4,7 @@ import Utils
 
 Node {
     id: skeletonModel
-    property var jointProvider
+    property var svm  //SkeletonViewModel
     property real jointRadius: 6e-4
     property real boneThickness: 2e-4
     property color jointColor: "purple"
@@ -12,73 +12,52 @@ Node {
     property var smplEdges: []
 
     // Local cache of joint positions (array of Qt.vector3d)
-    property var jointsCache: []
+    property var jointsCache: null
+    property bool useCachedJoints: false
     signal centerChanged(vector3d newCenter)
 
     //
     // MAIN UPDATE FUNCTION (single-call for all updates)
     //
     function updateAll() {
-        if (!jointProvider)
+        if (!svm && !useCachedJoints)
             return;
 
-        // 1) Batch-fetch joint positions once
-        const t0 = Date.now()
-        var jointCount = 0;
-        if (jointProvider.joints && typeof jointProvider.joints.length === "number")
-            jointCount = jointProvider.joints.length;
-        else if (typeof jointProvider.getJointIndexCount === "function")
-            jointCount = jointProvider.getJointIndexCount(); // optional provider API
+        var sourceJoints = null;
 
-        // fall back to existing instantiator count if necessary
-        if (jointCount <= 0 && jointInstantiator)
-            jointCount = jointInstantiator.count;
-
-        // make sure cache has the right length
-        jointsCache.length = jointCount;
-
-        for (var i = 0; i < jointCount; ++i) {
-            if (i >= jointProvider.joints.length) continue;
-            // expect getJoint(i) -> { x:, y:, z: } or Qt.vector3d
-            var p = jointProvider.getJoint(i);
-            // normalize representation to Qt.vector3d to work with UtilityProvider
-            if (p instanceof QtObject || (p && typeof p.x === "number")) {
-                jointsCache[i] = Qt.vector3d(p.x, p.y, p.z);
-            } else {
-                // If provider already returns a Qt.vector3d
-                jointsCache[i] = p;
-            }
+        if (useCachedJoints && jointsCache) {
+            sourceJoints = jointsCache;
+        } else if (svm && svm.joints) {
+            sourceJoints = svm.joints;
         }
 
-        // 2) Update joints visuals (one pass)
-        const t1 = Date.now()
+        if (!sourceJoints || sourceJoints.length === 0)
+            return;
+
+        var jointCount = sourceJoints.length;
+
+        // Ensure local cache is mutable
+        if (!Array.isArray(jointsCache) || jointsCache.length !== jointCount) {
+            jointsCache = new Array(jointCount);
+        }
+
+        for (var i = 0; i < jointCount; ++i) {
+            var p = sourceJoints[i];
+            jointsCache[i] = Qt.vector3d(p.x, p.y, p.z);
+        }
+
+        // ---- VISUAL UPDATE (unchanged) ----
         for (var j = 0; j < jointInstantiator.count; ++j) {
             var jointDelegate = jointInstantiator.objectAt(j);
             if (jointDelegate && jointDelegate.updateJoint)
-                jointDelegate.updateJoint(jointsCache[j]); // pass cached position
+                jointDelegate.updateJoint(jointsCache[j]);
         }
 
-        // 3) Update bones visuals (one pass)
-        const t2 = Date.now()
         for (var e = 0; e < edgeInst.count; ++e) {
             var boneDelegate = edgeInst.objectAt(e);
             if (boneDelegate && boneDelegate.updateBone)
-                boneDelegate.updateBone(jointsCache); // pass whole cache for lookup
+                boneDelegate.updateBone(jointsCache);
         }
-
-        // 4) Update skeleton center node (for camera)
-        const t3 = Date.now()
-        var center = getCenterPosition();
-        centerChanged(center);
-        const t4 = Date.now()
-
-        // console.log(
-        //     "Fetch:", t1-t0,
-        //     "Joints:", t2-t1,
-        //     "Bones:", t3-t2,
-        //     "Center:", t4-t3,
-        //     "Total:", t4-t0
-        // )
     }
 
     function getCenterPosition() {
@@ -106,11 +85,11 @@ Node {
     Connections {
         id: jointProviderConnection
         target: null
-        property real lastTime: Date.now()
+        //property real lastTime: Date.now()
         function onJointsChanged() {
-            const now = Date.now()
-            const dt = now - lastTime
-            lastTime = now
+            // const now = Date.now()
+            // const dt = now - lastTime
+            // lastTime = now
 
             //console.log("Frame time:", dt, "ms - FPS:", Math.round(1000/dt))
             skeletonModel.updateAll();
@@ -126,7 +105,7 @@ Node {
         Instantiator {
             id: jointInstantiator
             // keep existing behavior: model is provider.joints.length if available
-            model: jointProvider && jointProvider.joints ? jointProvider.joints.length : 0
+            model: svm && svm.joints ? svm.joints.length : 0
 
             delegate: Node {
                 id: jointDelegate
@@ -150,8 +129,8 @@ Node {
 
                 Component.onCompleted: {
                     // initialize with whatever provider currently has
-                    if (jointProvider)
-                        updateJoint(jointProvider.getJoint(index));
+                    if (svm)
+                        updateJoint(svm.getJoint(index));
                 }
             }
         }
@@ -228,11 +207,11 @@ Node {
 
                 Component.onCompleted: {
                     // attempt an initial update using current provider state
-                    if (jointProvider) {
+                    if (svm) {
                         var localCache = [];
                         // small, local fetch to update this bone once
-                        var pA = jointProvider.getJoint(a);
-                        var pB = jointProvider.getJoint(b);
+                        var pA = svm.getJoint(a);
+                        var pB = svm.getJoint(b);
                         if (pA && pB) {
                             updateBone([Qt.vector3d(pA.x, pA.y, pA.z), Qt.vector3d(pB.x, pB.y, pB.z)]);
                         }
@@ -245,14 +224,13 @@ Node {
     //
     // When provider changes: set the connection target safely, load edges, and prime update
     //
-    onJointProviderChanged: {
-        // safely assign connection target to avoid "Unable to assign [undefined]" errors
-        jointProviderConnection.target = jointProvider ? jointProvider : null;
+    onSvmChanged: {
+        jointProviderConnection.target = svm ? svm : null;
 
-        if (jointProvider) {
+        if (svm) {
             // load edges (cached list) once
-            smplEdges = jointProvider.getSMPLEdgesQML();
-            console.log("Loaded edge list:", smplEdges ? smplEdges.length : 0);
+            smplEdges = svm.getSMPLEdgesQML();
+            //console.log("Loaded edge list:", smplEdges ? smplEdges.length : 0);
 
             // initialize joints cache and update visuals
             updateAll();

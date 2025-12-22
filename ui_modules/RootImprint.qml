@@ -4,20 +4,29 @@ import "utility.js" as Utils
 
 Node {
     id: imprintRoot
-    property var jointProvider
+
+    property var svm
+    property var frameSource
     property int trailLength: 250          // Fixed pool size
     property real imprintRadius: 3e-4
 
-    // Circular buffer
-    property var posBuffer: []            // will be pre-sized
-    property int writeIndex: 0            // circular write position
-    property int length: 0                // how many points currently valid (<= trailLength)
+    // --- Circular buffer ---
+    property var posBuffer: []             // pre-sized
+    property int writeIndex: 0              // circular write position
+    property int length: 0                  // how many points currently valid
+
+    function resetBuffer() {
+        writeIndex = 0
+        length = 0
+    }
 
     function recordFrame() {
-        if (!jointProvider) return
+        if (!svm)
+            return
 
-        const p = jointProvider.getJoint(0)
-        if (!p) return
+        const p = svm.getJoint(0)
+        if (!p)
+            return
 
         posBuffer[writeIndex] = Qt.vector3d(p.x, p.y, p.z)
 
@@ -28,30 +37,39 @@ Node {
         // Update positions & colors
         for (var i = 0; i < length; i++) {
             var bufIndex = (writeIndex - 1 - i + trailLength) % trailLength
+            var sphere = sphereModels[i]
+            if (!sphere)
+                continue
 
-            // Move sphere
-            sphereModels[i].position = posBuffer[bufIndex]
+            sphere.position = posBuffer[bufIndex]
 
-            // Compute normalized age 0..1
-            var age = i / (length - 1)
-            sphereColors[i] = Utils.plasmaColor(age)
-            sphereModels[i].materials[0].diffuseColor = sphereColors[i]
+            // normalized age [0..1], guarded
+            var age = (length > 1) ? i / (length - 1) : 0
+            var color = Utils.plasmaColor(age)
+            sphere.materials[0].diffuseColor = color
+            sphereColors[i] = color
         }
     }
 
+    // --- Safe connection to SkeletonViewModel ---
     Connections {
-        target: imprintRoot.jointProvider
-        enabled: target !== null
-        function onJointsChanged() { imprintRoot.recordFrame() }
+        id: jointConn
+        target: svm
+        enabled: svm !== null
+
+        function onJointsChanged() {
+            imprintRoot.recordFrame()
+        }
     }
 
-    // preload posBuffer
+    // --- Preload buffer ---
     Component.onCompleted: {
+        posBuffer.length = trailLength
         for (var i = 0; i < trailLength; i++)
-            posBuffer.push(Qt.vector3d(0,0,0))
+            posBuffer[i] = Qt.vector3d(0, 0, 0)
     }
 
-    // pool of sphere objects
+    // --- Pool of sphere objects ---
     Node {
         id: spheresRoot
 
@@ -64,41 +82,51 @@ Node {
                 parent: spheresRoot
                 source: "#Sphere"
                 scale: Qt.vector3d(imprintRadius, imprintRadius, imprintRadius)
-
-                // Start hidden until buffer fills
-                visible: index < imprintRoot.length
+                visible: false
 
                 materials: DefaultMaterial {
-                    //diffuseColor: imprintColor
                     cullMode: Material.NoCulling
                 }
 
-                Component.onCompleted: sphereModels[index] = sphere
+                Component.onCompleted: {
+                    sphereModels[index] = sphere
+                }
             }
         }
     }
 
-    // Store references to sphere Models for fast updates
+    // --- Fast access arrays ---
     property var sphereModels: new Array(trailLength)
     property var sphereColors: new Array(trailLength)
 
-    onTrailLengthChanged: {
-        // 1. Rebuild posBuffer
-        posBuffer = []
+    // --- Keep visibility in sync with buffer length ---
+    onLengthChanged: {
         for (var i = 0; i < trailLength; i++) {
-            posBuffer.push(Qt.vector3d(0,0,0))
+            if (sphereModels[i])
+                sphereModels[i].visible = i < length
         }
+    }
 
-        // 2. Reset writeIndex & length
-        writeIndex = 0
-        length = 0
+    // --- Handle trailLength changes ---
+    onTrailLengthChanged: {
+        // rebuild buffer
+        posBuffer = new Array(trailLength)
+        for (var i = 0; i < trailLength; i++)
+            posBuffer[i] = Qt.vector3d(0, 0, 0)
 
-        // 3. Resize model reference arrays
+        // reset state
+        resetBuffer()
+
+        // resize references
         sphereModels = new Array(trailLength)
         sphereColors = new Array(trailLength)
 
-        // 4. Tell Instantiator to recreate spheres
+        // recreate spheres
         spheresInst.model = trailLength
     }
 
+    // --- Reset when skeleton changes ---
+    onSvmChanged: {
+        resetBuffer()
+    }
 }

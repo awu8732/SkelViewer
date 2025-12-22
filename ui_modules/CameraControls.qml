@@ -53,25 +53,29 @@ FocusScope {
         }
     }
 
-    Connections {
-        target: skeletonModel
+    // COOL FEATURE -> reimplement later
+    // Connections {
+    //     target: skeletonModel
+    //     ignoreUnknownSignals: true
 
-        function onCenterChanged(center) {
-            if (!cameraFollowEnabled)
-                return;
+    //     function onCenterChanged(center) {
+    //         if (!cameraFollowEnabled)
+    //             return;
+    //         if (!skeletonManager || skeletonManager.skeletons.length !== 1)
+    //                     return;
 
-            // Smooth camera follow (adjust values as you like)
-            const offset = Qt.vector3d(0.5, 0.8, 2.0)
+    //         // Smooth camera follow (adjust values as you like)
+    //         const offset = Qt.vector3d(0.5, 0.8, 2.0)
 
-            camera.position = Qt.vector3d(
-                camera.position.x * 0.85 + (center.x + offset.x) * 0.15,
-                camera.position.y * 0.85 + (center.y + offset.y) * 0.15,
-                camera.position.z * 0.85 + (center.z + offset.z) * 0.15
-            )
+    //         camera.position = Qt.vector3d(
+    //             camera.position.x * 0.85 + (center.x + offset.x) * 0.15,
+    //             camera.position.y * 0.85 + (center.y + offset.y) * 0.15,
+    //             camera.position.z * 0.85 + (center.z + offset.z) * 0.15
+    //         )
 
-            camera.lookAt(center)
-        }
-    }
+    //         camera.lookAt(center)
+    //     }
+    // }
 
     onCameraYChanged: {
             if (cameraY < -1) cameraY = -1

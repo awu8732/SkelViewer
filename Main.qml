@@ -8,13 +8,10 @@ Window {
     width: 800
     height: 600
     visible: true
-    property int currentFrame: 0
-    property int maxFrame: jointProvider3D ? jointProvider3D.frameCount - 1 : 0
 
     CameraControls {
         id: cameraControls
         anchors.fill: parent
-        skeletonModel: mainSkel
         Component.onCompleted: cameraControls.forceActiveFocus()
 
         SceneView {
@@ -25,6 +22,10 @@ Window {
             property bool showImprint: false
             property bool showScatter: false
 
+            property int imprintTrailLength: 250
+            property int scatterCount: 5
+            property int scatterStep: 2
+
             MenuBar {
                 anchors.top: parent.top
                 anchors.right: parent.right
@@ -34,28 +35,39 @@ Window {
                 }
             }
 
-            SkeletonModel {
-                id: mainSkel
-                jointProvider: jointProvider3D
-            }
+            Node {
+                id: sceneRoot
+                property var imprints: []
 
-            SkeletonModel {
-                id: secondSkel
-                jointProvider: jointProvider3D_2
-                jointColor: "pink"
-            }
+                Repeater3D {
+                    model: skeletonManager.skeletons
 
-            MotionScatter {
-                id: motionScatter
-                jointProvider: jointProvider3D
-                visible: globalSV.showScatter
-                currentFrame: mainWindow.currentFrame
-            }
+                    delegate: Node {
+                        id: skeletonNode
 
-            RootImprint {
-                id: rootImprint1
-                jointProvider: jointProvider3D
-                visible: globalSV.showImprint
+                        // The skeleton itself
+                        SkeletonModel {
+                            svm: model.viewModel
+                            jointColor: "pink"
+                        }
+
+                        // Trail/Imprint for this skeleton
+                        RootImprint {
+                            svm: model.viewModel
+                            frameSource: mainWindow
+                            trailLength: globalSV.imprintTrailLength
+                            visible: globalSV.showImprint
+                        }
+
+                        MotionScatter {
+                            svm: model.viewModel
+                            frameSource: mainWindow
+                            n: globalSV.scatterCount
+                            scatterStep: globalSV.scatterStep
+                            visible: globalSV.showScatter
+                        }
+                    }
+                }
             }
         }
 
@@ -74,11 +86,8 @@ Window {
                     if (event.modifiers & Qt.ControlModifier) {
                         // Ctrl + scroll → multiplicative zoom
                         cameraControls.cameraZ *= event.angleDelta.y > 0 ? (1 - stepZoom) : (1 + stepZoom)
-                    } /*else {
-                        // Plain scroll → linear Z movement
-                        cameraControls.cameraZ -= event.angleDelta.y > 0 ? stepLinear : -stepLinear
-                    }*/
-                    cameraControls.cameraZ = Math.max(-5, Math.min(cameraControls.cameraZ, 20))
+                    }
+                    cameraControls.cameraZ = Math.max(-10, Math.min(cameraControls.cameraZ, 20))
 
                     event.accepted = true
                 }
@@ -89,36 +98,42 @@ Window {
         Item {
             anchors.fill: parent
 
-            FrameSlider {
-                id: frameSlider
-                anchors.bottom: frameSlider2.top
-                cameraControls: cameraControls
-                jointProvider: jointProvider3D
-            }
+            Column {
+                id: frameSliderColumn
+                anchors.bottom: parent.bottom
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.bottomMargin: 15
+                spacing: 8
+                width: parent.width
 
-            FrameSlider {
-                id: frameSlider2
-                cameraControls: cameraControls
-                jointProvider: jointProvider3D_2
-            }
+                Repeater {
+                    model: skeletonManager.skeletons
 
+                    delegate: Item {
+                            width: parent.width
+                            height: 60
+
+                            FrameSlider {
+                                anchors.fill: parent
+                                playback: model.playback
+                            }
+                        }
+                }
+            }
 
             SideControl {
-                // anchors.bottom: frameSlider.top
-                // anchors.left: parent.left
                 cameraControls: cameraControls
             }
 
             HUD {
                 anchors.right: parent.right
                 anchors.rightMargin: parent ? parent.width * 0.05 : 50
-                anchors.bottom: frameSlider.top
+                anchors.bottom: frameSliderColumn.top
                 anchors.bottomMargin: 20
                 cameraControls: cameraControls
                 height: 200
                 width: 250
             }
         }
-
     }
 }

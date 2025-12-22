@@ -5,6 +5,7 @@ project(HMR_Trial_2 VERSION 0.1 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(Qt6 6.7 REQUIRED COMPONENTS Quick)
+find_package(Qt6 REQUIRED COMPONENTS Widgets)
 
 # set(fmt_DIR "D:/vcpkg/installed/x64-windows/share/fmt")
 # set(Eigen3_DIR "D:/vcpkg/installed/x64-windows/share/eigen3")
@@ -33,19 +34,30 @@ qt_add_qml_module(appHMR_Trial_2
         ui_modules/MotionScatter.qml
         ui_modules/PlaybackHub.qml
         ui_modules/RootImprint.qml
+        ui_modules/SectionBox.qml
         ui_modules/SideControl.qml
         ui_modules/SkeletonModel.qml
         ui_modules/utility.js
     SOURCES
-        skel_lib/DataLoaderBinary.cpp
-        skel_lib/JointProvider3D.cpp
+        skel_lib/MotionData.cpp
+        skel_lib/PlaybackHub.cpp
+        skel_lib/SkeletonInstance.cpp
+        skel_lib/SkeletonManager.cpp
+        skel_lib/SkeletonPlayback.cpp
+        skel_lib/SkeletonViewModel.cpp
         skel_lib/UtilityProvider.cpp
 
         skel_lib/SingleViewerConfiguration.h
         skel_lib/ArrayMeta.h
-        skel_lib/DataLoaderBinary.h
-        skel_lib/JointProvider3D.h
+        skel_lib/MotionData.h
+        skel_lib/MotionTypes.h
+        skel_lib/PlaybackHub.h
+        skel_lib/SkeletonInstance.h
+        skel_lib/SkeletonManager.h
+        skel_lib/SkeletonPlayback.h
+        skel_lib/SkeletonViewModel.h
         skel_lib/UtilityProvider.h
+
     RESOURCES
         tmp/oregon_test_1_ti0.bin
         tmp/oregon_test_1_ti0.meta.json
@@ -79,6 +91,7 @@ target_link_libraries(appHMR_Trial_2 PRIVATE
     fmt::fmt
     Eigen3::Eigen
 )
+target_link_libraries(appHMR_Trial_2 PRIVATE Qt6::Widgets)
 
 include(GNUInstallDirs)
 install(TARGETS appHMR_Trial_2

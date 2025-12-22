@@ -44,6 +44,10 @@ function length_v(v) {
     return Math.sqrt(v.x*v.x + v.y*v.y + v.z*v.z);
 }
 
+function smoothstep(x) {
+    return x * x * (3 - 2 * x)
+}
+
 function magmaColor(t) {
     // Clamp t 0..1
     t = Math.max(0, Math.min(1, t));

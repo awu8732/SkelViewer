@@ -17,9 +17,9 @@ using json = nlohmann::json;
 using Eigen::MatrixXf;
 using Eigen::Vector3f;
 
-class DataLoaderBinary {
+class MotionData {
 public:
-    DataLoaderBinary(const std::string& meta_path,
+    MotionData(const std::string& meta_path,
                      const std::string& bin_path,
                      const SingleViewerConfiguration& cfg);
 
