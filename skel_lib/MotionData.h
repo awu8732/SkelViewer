@@ -22,6 +22,8 @@ public:
     MotionData(const std::string& meta_path,
                      const std::string& bin_path,
                      const SingleViewerConfiguration& cfg);
+    MotionData(const std::string& npz_path,
+               const SingleViewerConfiguration& cfg);
 
     int get_frame_count () const;
     int get_fps () const;
@@ -29,6 +31,7 @@ public:
     Vector3f get_root_velocity_sg(int frame_idx) const;
     Vector3f get_root_acceleration_sg(int frame_idx) const;
     const std::vector<std::pair<int,int>>& get_SMPL_edges() const;
+    MatrixXf get_vertices(int frame_idx) const;
 
 private:
     SingleViewerConfiguration cfg_;
@@ -37,9 +40,13 @@ private:
     std::map<std::string, ArrayMeta> arrays_;
     std::vector<int> frames_;
     int num_frames_;
+    std::vector<MatrixXf> raw_joints_;
     std::vector<MatrixXf> aligned_joints_;
+    std::vector<Eigen::MatrixXf> raw_vertices_;
+    std::vector<Eigen::MatrixXf> aligned_vertices_;
     std::vector<Vector3f> root_vel_;
     std::vector<Vector3f> root_acc_;
+    std::string type_;
 
     void preprocess_joints();
     void load_and_align_joints();

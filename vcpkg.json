@@ -2,6 +2,7 @@
   "dependencies": [
     "eigen3",
     "fmt",
-    "nlohmann-json"
+    "nlohmann-json",
+    "zlib"
   ]
 }

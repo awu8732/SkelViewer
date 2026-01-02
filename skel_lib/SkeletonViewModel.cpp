@@ -22,6 +22,10 @@ QVector<QVector3D> SkeletonViewModel::joints() const {
     return joints_;
 }
 
+QVector<QVector3D> SkeletonViewModel::vertices() const {
+    return vertices_;
+}
+
 int SkeletonViewModel::frameCount() const {
     return motion_->get_frame_count();
 }
@@ -55,16 +59,14 @@ QVector<QVector2D> SkeletonViewModel::getSMPLEdgesQML() const {
 
 void SkeletonViewModel::onFrameChanged(int frame) {
     updateJointsInternal(frame);
+    updateVerticesInternal(frame);
 }
 
 void SkeletonViewModel::updateJointsInternal(int frame) {
-    QElapsedTimer timer;
-    timer.start();
-
     const auto mat = motion_->get_joints(frame);
     const int jointCount = mat.rows();
 
-    if (joints_.size() != jointCount)
+    if (joints_.isEmpty())
         joints_.resize(jointCount);
 
     for (int i = 0; i < jointCount; ++i) {
@@ -74,4 +76,26 @@ void SkeletonViewModel::updateJointsInternal(int frame) {
     }
 
     emit jointsChanged();
+}
+
+void SkeletonViewModel::updateVerticesInternal(int frame) {
+    if (frame < 0 || frame >= motion_->get_frame_count()) {
+        vertices_.clear();
+        emit verticesChanged();
+        return;
+    }
+
+    const auto mat = motion_->get_vertices(frame);
+    const int vertexCount = mat.rows();
+
+    if (vertices_.isEmpty())
+        vertices_.resize(vertexCount);
+
+    for (int i = 0; i < vertexCount; ++i) {
+        vertices_[i].setX(mat(i, 0));
+        vertices_[i].setY(mat(i, 1));
+        vertices_[i].setZ(mat(i, 2));
+    }
+
+    emit verticesChanged();
 }

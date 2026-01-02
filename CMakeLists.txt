@@ -4,8 +4,16 @@ set(QT_CREATOR_SKIP_VCPKG_SETUP ON)
 project(HMR_Trial_2 VERSION 0.1 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-find_package(Qt6 6.7 REQUIRED COMPONENTS Quick)
-find_package(Qt6 REQUIRED COMPONENTS Widgets)
+find_package(Qt6 6.7 REQUIRED COMPONENTS
+    Core
+    Widgets
+    Quick
+    Quick3D
+    3DCore
+    3DRender
+    3DInput
+    3DExtras
+)
 
 # set(fmt_DIR "D:/vcpkg/installed/x64-windows/share/fmt")
 # set(Eigen3_DIR "D:/vcpkg/installed/x64-windows/share/eigen3")
@@ -65,6 +73,12 @@ qt_add_qml_module(appHMR_Trial_2
         tmp/wu_squat_185_ti0.meta.json
         tmp/coleman_01_ti0.bin
         tmp/coleman_01_ti0.meta.json
+
+        tmp/smpl_oregon_1_202512_fwd.npz
+        tmp/smpl_oregon_1_202512_fwd1.npz
+        tmp/amss_oregon_2_20251215_skel_fwd.npz
+        tmp/smpl_faces.txt
+        SOURCES skel_lib/SkeletonMeshGeometry.h skel_lib/SkeletonMeshGeometry.cpp
 )
 
 qt_add_resources(appHMR_Trial_2 "resources"
@@ -85,13 +99,31 @@ set_target_properties(appHMR_Trial_2 PROPERTIES
 
 find_package(fmt CONFIG REQUIRED)
 find_package(Eigen3 REQUIRED)
+find_package(ZLIB REQUIRED)
 
+add_library(cnpy STATIC
+    thirdparty/cnpy/cnpy.cpp
+)
+target_include_directories(cnpy PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/cnpy
+)
+
+target_link_libraries(cnpy PUBLIC ZLIB::ZLIB)
 target_link_libraries(appHMR_Trial_2 PRIVATE
     Qt6::Quick
+    Qt6::Quick3D
+    Qt6::Core
+    Qt6::Widgets
+    Qt6::3DCore
+    Qt6::3DRender
+    Qt6::3DInput
+    Qt6::3DExtras
     fmt::fmt
     Eigen3::Eigen
+    cnpy
 )
-target_link_libraries(appHMR_Trial_2 PRIVATE Qt6::Widgets)
+
+
 
 include(GNUInstallDirs)
 install(TARGETS appHMR_Trial_2

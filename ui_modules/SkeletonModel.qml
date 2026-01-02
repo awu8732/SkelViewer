@@ -1,10 +1,12 @@
 import QtQuick
 import QtQuick3D
 import Utils
+import HMR_Trial_2 1.0
 
 Node {
     id: skeletonModel
     property var svm  //SkeletonViewModel
+    property bool enableBodyMesh: true
     property real jointRadius: 6e-4
     property real boneThickness: 2e-4
     property color jointColor: "purple"
@@ -16,9 +18,7 @@ Node {
     property bool useCachedJoints: false
     signal centerChanged(vector3d newCenter)
 
-    //
     // MAIN UPDATE FUNCTION (single-call for all updates)
-    //
     function updateAll() {
         if (!svm && !useCachedJoints)
             return;
@@ -46,16 +46,24 @@ Node {
             jointsCache[i] = Qt.vector3d(p.x, p.y, p.z);
         }
 
-        // ---- VISUAL UPDATE (unchanged) ----
+        updateVisuals();
+    }
+
+    function updateVisuals() {
+
+        // if (svm && svm.vertices && meshGeometry) {
+        //     meshGeometry.updateVertices(svm.vertices);
+        // }
+
         for (var j = 0; j < jointInstantiator.count; ++j) {
             var jointDelegate = jointInstantiator.objectAt(j);
-            if (jointDelegate && jointDelegate.updateJoint)
+            if (jointDelegate)
                 jointDelegate.updateJoint(jointsCache[j]);
         }
 
         for (var e = 0; e < edgeInst.count; ++e) {
             var boneDelegate = edgeInst.objectAt(e);
-            if (boneDelegate && boneDelegate.updateBone)
+            if (boneDelegate)
                 boneDelegate.updateBone(jointsCache);
         }
     }
@@ -79,13 +87,10 @@ Node {
         return Qt.vector3d(cx / n, cy / n, cz / n);
     }
 
-    //
-    // SINGLE Connections object - target will be set at runtime
-    //
     Connections {
-        id: jointProviderConnection
+        id: svmConnection
         target: null
-        //property real lastTime: Date.now()
+
         function onJointsChanged() {
             // const now = Date.now()
             // const dt = now - lastTime
@@ -179,27 +184,22 @@ Node {
                     var dx = pB.x - pA.x;
                     var dy = pB.y - pA.y;
                     var dz = pB.z - pA.z;
-
                     // compute length directly to avoid constructing temporary vector for tiny checks
                     var length = Math.sqrt(dx*dx + dy*dy + dz*dz);
                     if (length < 0.001) {
-                        boneModel.visible = false;
-                        return;
+                        boneModel.visible = false; return;
                     } else {
                         boneModel.visible = true;
                     }
-
                     // midpoint: use UtilityProvider.midpoint (C++)
                     var mid = UtilityProvider.midpoint(
-                        Qt.vector3d(pA.x, pA.y, pA.z),
-                        Qt.vector3d(pB.x, pB.y, pB.z)
+                                Qt.vector3d(pA.x, pA.y, pA.z), Qt.vector3d(pB.x, pB.y, pB.z)
                     );
-
                     // rotation: from up (0,1,0) to diff vector
                     var diffVec = Qt.vector3d(dx, dy, dz);
                     var rot = UtilityProvider.quaternionFromTo(Qt.vector3d(0,1,0), diffVec);
-
                     boneModel.position = mid;
+
                     // NOTE: cylinder assumed aligned along Y; scale Y to length/meshUnit (adjust divisor if mesh unit differs)
                     boneModel.scale = Qt.vector3d(boneThickness, length / 100.0, boneThickness);
                     boneModel.rotation = rot;
@@ -219,18 +219,33 @@ Node {
                 }
             }
         }
+
+        Model {
+            id: bodyMesh
+            visible: true1
+
+            geometry: SkeletonMeshGeometry {
+                id: meshGeometry
+            }
+
+            materials: [
+                DefaultMaterial {
+                    diffuseColor: "#c8c8c8"
+                    lighting: DefaultMaterial.FragmentLighting
+                    cullMode: Material.NoCulling
+                }
+            ]
+        }
+
     }
 
-    //
     // When provider changes: set the connection target safely, load edges, and prime update
-    //
     onSvmChanged: {
-        jointProviderConnection.target = svm ? svm : null;
+        svmConnection.target = svm ? svm : null;
 
         if (svm) {
             // load edges (cached list) once
             smplEdges = svm.getSMPLEdgesQML();
-            //console.log("Loaded edge list:", smplEdges ? smplEdges.length : 0);
 
             // initialize joints cache and update visuals
             updateAll();

@@ -162,6 +162,7 @@ Node {
                 id: skeletonModel
 
                 svm: motionScatterRoot.svm
+                enableBodyMesh: false
                 visible: false
                 opacity: 0.15
 

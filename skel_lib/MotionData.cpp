@@ -1,4 +1,5 @@
 #include "MotionData.h"
+#include "thirdparty/cnpy/cnpy.h"
 #include <QDebug>
 #include <set>
 
@@ -8,6 +9,7 @@ MotionData::MotionData(const std::string& meta_path,
     : cfg_(cfg)
 {
     // Load metadata
+    type_ = "custom";
     QFile metaFile(QString::fromStdString(meta_path));
     if (!metaFile.open(QIODevice::ReadOnly)) {
         qWarning() << "Failed to open meta file:" << QString::fromStdString(meta_path);
@@ -65,6 +67,72 @@ MotionData::MotionData(const std::string& meta_path,
     preprocess_joints();
 }
 
+MotionData::MotionData(const std::string& npz_path,
+                       const SingleViewerConfiguration& cfg)
+    : cfg_(cfg)
+{
+    type_ = cfg.type;
+    cnpy::npz_t npz = cnpy::npz_load(npz_path);
+
+    // ---- joints ----
+    auto& joints_np = npz.at("joints");
+    const float* joints_ptr = joints_np.data<float>();
+
+    // Expected shape: [T, J, 3]
+    assert(joints_np.shape.size() == 3);
+    int T = joints_np.shape[0];
+    int J = joints_np.shape[1];
+
+    num_frames_ = T;
+    frames_.resize(T);
+    for (int i = 0; i < T; ++i)
+        frames_[i] = i;
+
+    raw_joints_.resize(T);
+
+    for (int t = 0; t < T; ++t) {
+        MatrixXf frame(J, 3);
+        const float* frame_ptr =
+            joints_ptr + t * J * 3;
+
+        for (int j = 0; j < J; ++j)
+            for (int k = 0; k < 3; ++k)
+                frame(j, k) = frame_ptr[j * 3 + k];
+
+        raw_joints_[t] = frame;
+    }
+
+    // ---- vertices ----
+    auto& verts_np = npz.at("vertices");
+    assert(verts_np.shape.size() == 3);
+
+    assert(verts_np.shape.size() == 3);
+    T = verts_np.shape[0];
+    int V = verts_np.shape[1];
+    assert(V == 6890);
+
+    const float* verts_ptr = verts_np.data<float>();
+
+    raw_vertices_.resize(T);
+
+    for (int t = 0; t < T; ++t) {
+        MatrixXf frame(V, 3);
+        const float* frame_ptr = verts_ptr + t * V * 3;
+
+        for (int i = 0; i < V; ++i)
+            for (int k = 0; k < 3; ++k)
+                frame(i, k) = frame_ptr[i * 3 + k];
+
+        raw_vertices_[t] = frame;
+    }
+
+    // ---- FPS ----
+    if (npz.count("mocap_framerate")) {
+        cfg_.FPS = *npz.at("mocap_framerate").data<int>();
+    }
+
+    preprocess_joints();
+}
 
 /* ------------ PUBLIC ------------ */
 
@@ -78,12 +146,6 @@ int MotionData::get_fps () const {
 
 MatrixXf MotionData::get_joints(int frame_idx) const {
     return aligned_joints_.at(frame_idx);
-    // if (cfg_.STATIC_ALIGN) {
-    //     return aligned_joints_.at(frame_idx);
-    // } else {
-    //     std::string arr_name = "joints/" + std::to_string(frames_[frame_idx]);
-    //     return read_array(arrays_.at(arr_name));
-    // }
 }
 
 Vector3f MotionData::get_root_velocity_sg(int frame_idx) const {
@@ -99,7 +161,12 @@ Vector3f MotionData::get_root_acceleration_sg(int frame_idx) const {
 }
 
 const std::vector<std::pair<int,int>>& MotionData::get_SMPL_edges() const {
-    return cfg_.SMPL_EDGES;
+    if (type_ == "skel") return cfg_.SKEL_EDGES;
+    else return cfg_.SMPL_EDGES;
+}
+
+MatrixXf MotionData::get_vertices(int frame_idx) const {
+    return aligned_vertices_.at(frame_idx);
 }
 
 /* ------------ PRIVATE ------------ */
@@ -132,59 +199,76 @@ QString eigenRowToQString(const Eigen::MatrixXf& m, int row)
     return s;
 }
 
+void MotionData::load_and_align_joints()
+{
+    Q_ASSERT(!raw_joints_.empty());
 
-void MotionData::load_and_align_joints() {
-    aligned_joints_.clear();
     aligned_joints_.resize(num_frames_);
+    aligned_vertices_.resize(num_frames_);
 
-    MatrixXf root_offset = MatrixXf::Zero(1, 3);
-    bool root_set = false;
+    // Reference root = frame 0 root
+    Eigen::RowVector3f reference_root = raw_joints_[0].row(0);
+
+    qDebug() << "[STATIC ALIGN] Reference root:"
+             << reference_root(0)
+             << reference_root(1)
+             << reference_root(2);
 
     for (int idx = 0; idx < num_frames_; ++idx) {
-        int f = frames_[idx];
-        std::string arr_name = "joints/" + std::to_string(f);
 
-        MatrixXf joints = read_array(arrays_.at(arr_name));
-        MatrixXf original_joints = joints;   // keep a copy for logging
-
-
-        // align all coordinates to origin originally
-        if (!root_set) {
-            root_offset = joints.row(0);
-            root_set = true;
-
-            qDebug() << "[STATIC ALIGN] Root offset set to:" << eigenRowToQString(root_offset, 0);
-        }
-        joints.rowwise() -= root_offset.row(0);
-
-        if (cfg_.STATIC_ALIGN) {
-            MatrixXf frame_root = joints.row(0);
-            joints.rowwise() -= frame_root.row(0);
-        }
-
-        if (!cfg_.Z_UP)
-            joints = swap_yz(joints);
-
-        // Log for first 5 frames
-        // if (idx < 15 & idx % 5 == 0) {
-        //     qDebug() << "\n--- Frame" << idx << "(source frame" << f << ") ---";
-        //     qDebug() << "Root offset:" << eigenRowToQString(root_offset, 0);
-
-        //     for (int j = 0; j < joints.rows(); ++j) {
-        //         qDebug()
-        //         << "Joint" << j << ": ("
-        //         << original_joints(j,0) << ","
-        //         << original_joints(j,1) << ","
-        //         << original_joints(j,2) << ")  →  ("
-        //         << joints(j,0) << ","
-        //         << joints(j,1) << ","
-        //         << joints(j,2) << ")";
+        // -------------------------------------------------
+        // Joints
+        // -------------------------------------------------
+        MatrixXf joints = raw_joints_[idx];
+        const Eigen::RowVector3f current_root = joints.row(0);
+        // if (idx < 3) {
+        //     qDebug() << "Frame" << idx;
+        //     for (int r = 0; r < joints.rows(); ++r) {
+        //         QString rowStr;
+        //         for (int c = 0; c < joints.cols(); ++c) {
+        //             rowStr += QString::number(joints(r, c), 'f', 3) + " ";
+        //         }
+        //         qDebug() << rowStr;
         //     }
         // }
+        if (cfg_.GLOBAL_ALIGN) {
+            // Lock skeleton in place
+            joints.rowwise() -= current_root;
+        }
+        else {
+            joints.rowwise() -= reference_root;
+        }
+
+        if (!cfg_.Z_UP) {
+            joints = swap_yz(joints);
+        }
 
         aligned_joints_[idx] = joints;
+
+        // -------------------------------------------------
+        // Vertices (SMPL or SKEL only)
+        // -------------------------------------------------
+        if (type_ == "smpl" || type_ == "skel") {
+
+            MatrixXf verts = raw_vertices_[idx];
+            const Eigen::RowVector3f current_root = raw_joints_[idx].row(0);
+
+            if (cfg_.GLOBAL_ALIGN) {
+                verts.rowwise() -= current_root;
+            }
+            else {
+                verts.rowwise() -= reference_root;
+            }
+
+            if (!cfg_.Z_UP) {
+                verts = swap_yz(verts);
+            }
+
+            aligned_vertices_[idx] = verts;
+        }
     }
 }
+
 
 void MotionData::extract_root_trajectory(std::vector<Vector3f>& roots) {
     for (int i = 0; i < num_frames_; i++) {
@@ -289,6 +373,4 @@ MatrixXf MotionData::read_array(const ArrayMeta& meta) const {
 
     return mat;
 }
-
-
 

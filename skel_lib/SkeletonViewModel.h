@@ -12,6 +12,7 @@ class SkeletonViewModel : public QObject {
 
     Q_PROPERTY(int frameCount READ frameCount CONSTANT)
     Q_PROPERTY(QVector<QVector3D> joints READ joints NOTIFY jointsChanged)
+    Q_PROPERTY(QVector<QVector3D> vertices READ vertices NOTIFY jointsChanged)
 
 public:
     explicit SkeletonViewModel(
@@ -22,6 +23,8 @@ public:
 
     // --- data access ---
     QVector<QVector3D> joints() const;
+    QVector<QVector3D> vertices() const;
+
     int frameCount() const;
     int fps() const;
 
@@ -32,14 +35,17 @@ public:
 
 signals:
     void jointsChanged();
+    void verticesChanged();
 
 private slots:
     void onFrameChanged(int frame);
 
 private:
     void updateJointsInternal(int frame);
+    void updateVerticesInternal(int frame);
 
     const MotionData* motion_;                  // read-only
     SkeletonPlayback* playback_;          // not owned
     QVector<QVector3D> joints_;
+    QVector<QVector3D> vertices_;
 };
